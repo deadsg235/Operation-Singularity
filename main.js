@@ -136,10 +136,6 @@ function createCity() {
         scene.add(building);
         buildings.push(building);
 
-        // Buildings cast and receive shadows
-        building.castShadow = true;
-        building.receiveShadow = true;
-
         // Neon signs
         if (Math.random() > 0.7) {
             const signGeometry = new THREE.PlaneGeometry(building.scale.x, 5);
@@ -159,32 +155,6 @@ function createCity() {
             signLight.position.copy(sign.position);
             scene.add(signLight);
         }
-    }
-    createStreetObjects();
-}
-
-function createStreetObjects() {
-    const streetObjectMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.7, roughness: 0.6 });
-
-    for (let i = 0; i < 100; i++) {
-        const type = Math.random();
-        let geometry;
-        if (type < 0.5) {
-            geometry = new THREE.BoxGeometry(Math.random() * 2 + 0.5, Math.random() * 3 + 1, Math.random() * 2 + 0.5);
-        } else {
-            geometry = new THREE.CylinderGeometry(Math.random() * 0.5 + 0.2, Math.random() * 0.5 + 0.2, Math.random() * 3 + 1, 8);
-        }
-
-        const streetObject = new THREE.Mesh(geometry, streetObjectMaterial);
-
-        streetObject.position.x = Math.random() * 400 - 200;
-        streetObject.position.z = Math.random() * 400 - 200;
-        streetObject.position.y = streetObject.geometry.parameters.height / 2;
-
-        streetObject.castShadow = true;
-        streetObject.receiveShadow = true;
-
-        scene.add(streetObject);
     }
 }
 createCity();
@@ -436,22 +406,6 @@ const bluePointLight = new THREE.PointLight(0x0000ff, 2, 200, 1);
 bluePointLight.position.set(0, 50, 0);
 scene.add(bluePointLight);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 5);
-sunLight.position.set(50, 200, 100);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048;
-sunLight.shadow.mapSize.height = 2048;
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 500;
-sunLight.shadow.camera.left = -250;
-sunLight.shadow.camera.right = 250;
-sunLight.shadow.camera.top = 250;
-sunLight.shadow.camera.bottom = -250;
-scene.add(sunLight);
-
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
 // Player Health
 let playerMaxHealth = 100;
 let playerCurrentHealth = playerMaxHealth;
@@ -507,10 +461,6 @@ function animate() {
 
     bluePointLight.position.x = Math.sin(elapsedTime * 0.1) * 100;
     bluePointLight.position.z = Math.cos(elapsedTime * 0.1) * 100;
-
-    sunLight.position.x = Math.sin(elapsedTime * 0.05) * 200;
-    sunLight.position.y = Math.sin(elapsedTime * 0.05) * 100 + 100; // Oscillate between 0 and 200
-    sunLight.position.z = Math.cos(elapsedTime * 0.05) * 200;
 
     if (controls.isLocked) {
         const cameraDirection = controls.getObject().getWorldDirection(new THREE.Vector3());
