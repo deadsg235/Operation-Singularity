@@ -226,22 +226,6 @@ const gunRearSight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.05), gun
 gunRearSight.position.set(0.5, -0.2, -1.0);
 gun.add(gunRearSight);
 
-const gunTrigger = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 0.2), gunMaterial);
-gunTrigger.position.set(0.5, -0.45, -0.9);
-gun.add(gunTrigger);
-
-const gunHammer = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), gunMaterial);
-gunHammer.position.set(0.5, -0.1, -0.7);
-gun.add(gunHammer);
-
-const gunFrontSight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.05), gunMaterial);
-gunFrontSight.position.set(0.5, -0.2, -1.9);
-gun.add(gunFrontSight);
-
-const gunRearSight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.05), gunMaterial);
-gunRearSight.position.set(0.5, -0.2, -1.0);
-gun.add(gunRearSight);
-
 const initialGunPosition = gun.position.clone();
 const initialGunRotation = gun.rotation.clone();
 
