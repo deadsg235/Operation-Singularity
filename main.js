@@ -68,6 +68,9 @@ const onKeyDown = (event) => {
         case 'ShiftLeft':
             isSprinting = true;
             break;
+        case 'Enter':
+            togglePause();
+            break;
     }
 };
 
@@ -95,9 +98,9 @@ document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup', onKeyUp);
 
 renderer.domElement.addEventListener('click', () => {
-    if (controls.isLocked) {
+    if (controls.isLocked && !isPaused) {
         shoot();
-    } else {
+    } else if (!controls.isLocked && !isPaused) {
         controls.lock();
     }
 });
@@ -133,6 +136,10 @@ function createCity() {
         scene.add(building);
         buildings.push(building);
 
+        // Buildings cast and receive shadows
+        building.castShadow = true;
+        building.receiveShadow = true;
+
         // Neon signs
         if (Math.random() > 0.7) {
             const signGeometry = new THREE.PlaneGeometry(building.scale.x, 5);
@@ -152,6 +159,32 @@ function createCity() {
             signLight.position.copy(sign.position);
             scene.add(signLight);
         }
+    }
+    createStreetObjects();
+}
+
+function createStreetObjects() {
+    const streetObjectMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.7, roughness: 0.6 });
+
+    for (let i = 0; i < 100; i++) {
+        const type = Math.random();
+        let geometry;
+        if (type < 0.5) {
+            geometry = new THREE.BoxGeometry(Math.random() * 2 + 0.5, Math.random() * 3 + 1, Math.random() * 2 + 0.5);
+        } else {
+            geometry = new THREE.CylinderGeometry(Math.random() * 0.5 + 0.2, Math.random() * 0.5 + 0.2, Math.random() * 3 + 1, 8);
+        }
+
+        const streetObject = new THREE.Mesh(geometry, streetObjectMaterial);
+
+        streetObject.position.x = Math.random() * 400 - 200;
+        streetObject.position.z = Math.random() * 400 - 200;
+        streetObject.position.y = streetObject.geometry.parameters.height / 2;
+
+        streetObject.castShadow = true;
+        streetObject.receiveShadow = true;
+
+        scene.add(streetObject);
     }
 }
 createCity();
@@ -177,6 +210,22 @@ const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.3), gunMaterial
 gunGrip.position.set(0.5, -0.6, -0.7);
 gun.add(gunGrip);
 
+const gunTrigger = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 0.2), gunMaterial);
+gunTrigger.position.set(0.5, -0.45, -0.9);
+gun.add(gunTrigger);
+
+const gunHammer = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), gunMaterial);
+gunHammer.position.set(0.5, -0.1, -0.7);
+gun.add(gunHammer);
+
+const gunFrontSight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.05), gunMaterial);
+gunFrontSight.position.set(0.5, -0.2, -1.9);
+gun.add(gunFrontSight);
+
+const gunRearSight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.05), gunMaterial);
+gunRearSight.position.set(0.5, -0.2, -1.0);
+gun.add(gunRearSight);
+
 const initialGunPosition = gun.position.clone();
 const initialGunRotation = gun.rotation.clone();
 
@@ -195,28 +244,34 @@ const enemyMeshes = [];
 function createEnemy() {
     const enemy = new THREE.Group();
 
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.5));
-    torso.position.y = 0.75;
+    // Torso
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 1));
+    torso.position.y = 1.5;
     enemy.add(torso);
 
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5));
-    head.position.y = 1.75;
+    // Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    head.position.y = 3.5;
     enemy.add(head);
 
-    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
-    leftArm.position.set(-0.75, 1, 0);
+    // Left Arm
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5));
+    leftArm.position.set(-1.25, 2.5, 0);
     enemy.add(leftArm);
 
-    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
-    rightArm.position.set(0.75, 1, 0);
+    // Right Arm
+    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5));
+    rightArm.position.set(1.25, 2.5, 0);
     enemy.add(rightArm);
 
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
-    leftLeg.position.set(-0.25, -0.5, 0);
+    // Left Leg
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5));
+    leftLeg.position.set(-0.75, -0.5, 0);
     enemy.add(leftLeg);
 
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
-    rightLeg.position.set(0.25, -0.5, 0);
+    // Right Leg
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5));
+    rightLeg.position.set(0.75, -0.5, 0);
     enemy.add(rightLeg);
 
     return enemy;
@@ -236,15 +291,76 @@ function spawnEnemies() {
 
         enemy.position.x = Math.random() * 300 - 150;
         enemy.position.z = Math.random() * 300 - 150;
-        enemy.position.y = 1;
+        enemy.position.y = 3; // Adjust for new height
 
         enemy.health = 100;
+        enemy.lastShotTime = 0;
+        enemy.fireRate = 0.8; // seconds
+        enemy.state = ENEMY_STATE_CHASE; // Initial state
+        enemy.flankTargetPosition = new THREE.Vector3(); // For flanking behavior
 
         scene.add(enemy);
         enemies.push(enemy);
     }
 }
 spawnEnemies();
+
+const ENEMY_STATE_CHASE = 0;
+const ENEMY_STATE_FLANK = 1;
+
+let isPaused = false;
+const pauseMenu = document.getElementById('pause-menu');
+
+function togglePause() {
+    isPaused = !isPaused;
+    if (isPaused) {
+        pauseMenu.style.display = 'flex';
+        controls.unlock();
+    } else {
+        pauseMenu.style.display = 'none';
+        controls.lock();
+    }
+}
+
+function enemyAI(enemy, delta) {
+    const playerPosition = controls.getObject().position;
+    const distanceToPlayer = enemy.position.distanceTo(playerPosition);
+    const enemyMoveSpeed = 7 * delta;
+
+    switch (enemy.state) {
+        case ENEMY_STATE_CHASE:
+            enemy.lookAt(playerPosition);
+            enemy.translateZ(enemyMoveSpeed);
+
+            if (distanceToPlayer < 40 && Math.random() < 0.01) { // 1% chance to flank if close
+                enemy.state = ENEMY_STATE_FLANK;
+                // Calculate a flanking position
+                const playerDirection = new THREE.Vector3();
+                playerDirection.subVectors(playerPosition, enemy.position).normalize();
+                const sideDirection = new THREE.Vector3().crossVectors(camera.up, playerDirection).normalize();
+                
+                // Randomly choose left or right flank
+                if (Math.random() > 0.5) {
+                    sideDirection.negate(); 
+                }
+                enemy.flankTargetPosition.copy(playerPosition).add(sideDirection.multiplyScalar(Math.random() * 20 + 10)); // 10-30 units to the side
+            }
+            break;
+
+        case ENEMY_STATE_FLANK:
+            const distanceToFlankTarget = enemy.position.distanceTo(enemy.flankTargetPosition);
+            if (distanceToFlankTarget > 5) { // If not at flank target, move towards it
+                enemy.lookAt(enemy.flankTargetPosition);
+                enemy.translateZ(enemyMoveSpeed);
+            } else { // Once at flank target, resume chasing
+                enemy.state = ENEMY_STATE_CHASE;
+            }
+
+            // Still try to look at player while flanking
+            enemy.lookAt(playerPosition);
+            break;
+    }
+}
 
 // Shooting
 const raycaster = new THREE.Raycaster();
@@ -320,6 +436,43 @@ const bluePointLight = new THREE.PointLight(0x0000ff, 2, 200, 1);
 bluePointLight.position.set(0, 50, 0);
 scene.add(bluePointLight);
 
+const sunLight = new THREE.DirectionalLight(0xffffff, 5);
+sunLight.position.set(50, 200, 100);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 500;
+sunLight.shadow.camera.left = -250;
+sunLight.shadow.camera.right = 250;
+sunLight.shadow.camera.top = 250;
+sunLight.shadow.camera.bottom = -250;
+scene.add(sunLight);
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// Player Health
+let playerMaxHealth = 100;
+let playerCurrentHealth = playerMaxHealth;
+const healthBar = document.getElementById('health-bar');
+
+function updateHealthBar() {
+    healthBar.style.width = `${(playerCurrentHealth / playerMaxHealth) * 100}%`;
+}
+
+function takeDamage(amount) {
+    playerCurrentHealth -= amount;
+    if (playerCurrentHealth < 0) {
+        playerCurrentHealth = 0;
+    }
+    updateHealthBar();
+    // Add game over logic here if health reaches 0
+}
+
+// Initialize health bar
+updateHealthBar();
+
 // Movement variables
 let moveForward = false;
 let moveBackward = false;
@@ -330,8 +483,8 @@ let velocityY = 0;
 const gravity = 0.5;
 
 let isSprinting = false;
-const walkSpeed = 50;
-const sprintSpeed = 100;
+const walkSpeed = 80;
+const sprintSpeed = 150;
 
 // Animation loop
 const clock = new THREE.Clock();
@@ -344,11 +497,20 @@ const moveDirection = new THREE.Vector3();
 function animate() {
     requestAnimationFrame(animate);
 
+    if (isPaused) {
+        return;
+    }
+
     const delta = clock.getDelta();
     const elapsedTime = clock.getElapsedTime();
 
+
     bluePointLight.position.x = Math.sin(elapsedTime * 0.1) * 100;
     bluePointLight.position.z = Math.cos(elapsedTime * 0.1) * 100;
+
+    sunLight.position.x = Math.sin(elapsedTime * 0.05) * 200;
+    sunLight.position.y = Math.sin(elapsedTime * 0.05) * 100 + 100; // Oscillate between 0 and 200
+    sunLight.position.z = Math.cos(elapsedTime * 0.05) * 200;
 
     if (controls.isLocked) {
         const cameraDirection = controls.getObject().getWorldDirection(new THREE.Vector3());
@@ -394,8 +556,44 @@ function animate() {
 
     // Enemy AI
     enemies.forEach(enemy => {
-        enemy.lookAt(camera.position);
-        enemy.translateZ(2 * delta);
+        enemyAI(enemy, delta);
+
+        // Enemy firing logic
+        const playerPosition = controls.getObject().position;
+        const distanceToPlayer = enemy.position.distanceTo(playerPosition);
+        const attackRange = 50;
+        const enemyBulletSpeed = 200;
+
+        if (distanceToPlayer < attackRange && elapsedTime - enemy.lastShotTime > enemy.fireRate) {
+            const enemyRaycaster = new THREE.Raycaster();
+            const enemyDirection = new THREE.Vector3();
+            enemyDirection.subVectors(playerPosition, enemy.position).normalize();
+
+            // Add some inaccuracy
+            enemyDirection.x += (Math.random() - 0.5) * 0.2;
+            enemyDirection.y += (Math.random() - 0.5) * 0.2;
+            enemyDirection.z += (Math.random() - 0.5) * 0.2;
+            enemyDirection.normalize();
+
+            enemyRaycaster.set(enemy.position, enemyDirection);
+
+            const obstructionIntersects = enemyRaycaster.intersectObjects(buildings);
+            const isObstructed = obstructionIntersects.length > 0 && obstructionIntersects[0].distance < distanceToPlayer;
+
+            if (!isObstructed) {
+                const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+                const tracerPoints = [];
+                tracerPoints.push(enemy.position.clone());
+                tracerPoints.push(enemyDirection.clone().multiplyScalar(attackRange).add(enemy.position));
+                const tracerGeometry = new THREE.BufferGeometry().setFromPoints(tracerPoints);
+                const tracer = new THREE.Line(tracerGeometry, tracerMaterial);
+                scene.add(tracer);
+                bulletTracers.push(tracer);
+
+                takeDamage(10); // Player takes damage
+            }
+            enemy.lastShotTime = elapsedTime;
+        }
     });
 
     // Bullet Tracers
