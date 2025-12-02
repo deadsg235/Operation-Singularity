@@ -283,12 +283,15 @@ function shoot() {
 }
 
 // Lights
-const ambientLight = new THREE.AmbientLight(0x404040, 2);
+const ambientLight = new THREE.AmbientLight(0x404040, 8);
 scene.add(ambientLight);
 
-const pointLight = new THREE.PointLight(0xffffff, 5, 100, 2);
+const pointLight = new THREE.PointLight(0xffffff, 50, 100, 2);
 pointLight.position.set(0, 0, 0);
 camera.add(pointLight);
+
+const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x333333, 2);
+scene.add(hemisphereLight);
 
 const bluePointLight = new THREE.PointLight(0x0000ff, 1, 200, 1);
 bluePointLight.position.set(0, 50, 0);
@@ -302,6 +305,8 @@ let moveRight = false;
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const moveSpeed = 50;
+let velocityY = 0;
+const gravity = 0.5;
 
 // Animation loop
 const clock = new THREE.Clock();
@@ -346,6 +351,14 @@ function animate() {
         }
 
         controls.getObject().position.add(moveVector);
+
+        velocityY -= gravity * delta;
+        controls.getObject().position.y += velocityY;
+
+        if (controls.getObject().position.y < 10) {
+            velocityY = 0;
+            controls.getObject().position.y = 10;
+        }
     }
 
     // Enemy AI
