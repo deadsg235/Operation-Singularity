@@ -65,6 +65,9 @@ const onKeyDown = (event) => {
         case 'KeyD':
             moveRight = true;
             break;
+        case 'ShiftLeft':
+            isSprinting = true;
+            break;
     }
 };
 
@@ -81,6 +84,9 @@ const onKeyUp = (event) => {
             break;
         case 'KeyD':
             moveRight = false;
+            break;
+        case 'ShiftLeft':
+            isSprinting = false;
             break;
     }
 };
@@ -154,17 +160,25 @@ createCity();
 const gun = new THREE.Group();
 const gunMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.5 });
 
-const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1), gunMaterial);
-gunBody.position.set(0.5, -0.2, -1);
+const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.8), gunMaterial);
+gunBody.position.set(0.5, -0.3, -1);
 gun.add(gunBody);
 
-const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32), gunMaterial);
-gunBarrel.position.set(0.5, -0.2, -1.5);
+const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.2, 32), gunMaterial);
+gunBarrel.position.set(0.5, -0.3, -1.8);
 gun.add(gunBarrel);
 
-const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), gunMaterial);
-gunGrip.position.set(0.5, -0.5, -0.8);
+const gunCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 6), gunMaterial);
+gunCylinder.rotation.z = Math.PI / 2;
+gunCylinder.position.set(0.5, -0.3, -1.2);
+gun.add(gunCylinder);
+
+const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.3), gunMaterial);
+gunGrip.position.set(0.5, -0.6, -0.7);
 gun.add(gunGrip);
+
+const initialGunPosition = gun.position.clone();
+const initialGunRotation = gun.rotation.clone();
 
 camera.add(gun);
 scene.add(camera);
@@ -242,6 +256,15 @@ function shoot() {
     muzzleFlash.visible = true;
     setTimeout(() => muzzleFlash.visible = false, 50);
 
+    // Recoil animation
+    gun.position.set(initialGunPosition.x, initialGunPosition.y + 0.1, initialGunPosition.z + 0.2);
+    gun.rotation.set(initialGunRotation.x + 0.1, initialGunRotation.y, initialGunRotation.z);
+
+    setTimeout(() => {
+        gun.position.copy(initialGunPosition);
+        gun.rotation.copy(initialGunRotation);
+    }, 100);
+
     raycaster.setFromCamera({ x: 0, y: 0 }, camera);
 
     const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
@@ -283,17 +306,17 @@ function shoot() {
 }
 
 // Lights
-const ambientLight = new THREE.AmbientLight(0x404040, 8);
+const ambientLight = new THREE.AmbientLight(0x404040, 15);
 scene.add(ambientLight);
 
-const pointLight = new THREE.PointLight(0xffffff, 50, 100, 2);
+const pointLight = new THREE.PointLight(0xffffff, 100, 100, 2);
 pointLight.position.set(0, 0, 0);
 camera.add(pointLight);
 
-const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x333333, 2);
+const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x333333, 5);
 scene.add(hemisphereLight);
 
-const bluePointLight = new THREE.PointLight(0x0000ff, 1, 200, 1);
+const bluePointLight = new THREE.PointLight(0x0000ff, 2, 200, 1);
 bluePointLight.position.set(0, 50, 0);
 scene.add(bluePointLight);
 
@@ -302,11 +325,13 @@ let moveForward = false;
 let moveBackward = false;
 let moveLeft = false;
 let moveRight = false;
-const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
 const moveSpeed = 50;
 let velocityY = 0;
 const gravity = 0.5;
+
+let isSprinting = false;
+const walkSpeed = 50;
+const sprintSpeed = 100;
 
 // Animation loop
 const clock = new THREE.Clock();
@@ -330,27 +355,33 @@ function animate() {
         const rightDirection = new THREE.Vector3().crossVectors(controls.getObject().up, cameraDirection).negate();
 
         let moveF = Number(moveForward) - Number(moveBackward);
-        let moveR = Number(moveLeft) - Number(moveRight);
+        let moveR = Number(moveRight) - Number(moveLeft);
 
-        const moveVector = new THREE.Vector3();
+        const currentMoveSpeed = isSprinting ? sprintSpeed : walkSpeed;
+
+        const intendedMoveVector = new THREE.Vector3();
 
         if (moveF !== 0) {
-            const forwardRaycaster = new THREE.Raycaster(controls.getObject().position, cameraDirection);
-            const forwardIntersects = forwardRaycaster.intersectObjects(buildings);
-            if (forwardIntersects.length === 0 || forwardIntersects[0].distance > collisionDistance) {
-                moveVector.add(cameraDirection.clone().multiplyScalar(moveF * moveSpeed * delta));
-            }
+            intendedMoveVector.add(cameraDirection.clone().multiplyScalar(moveF));
         }
-
         if (moveR !== 0) {
-            const rightRaycaster = new THREE.Raycaster(controls.getObject().position, rightDirection);
-            const rightIntersects = rightRaycaster.intersectObjects(buildings);
-            if (rightIntersects.length === 0 || rightIntersects[0].distance > collisionDistance) {
-                moveVector.add(rightDirection.clone().multiplyScalar(moveR * moveSpeed * delta));
-            }
+            intendedMoveVector.add(rightDirection.clone().multiplyScalar(moveR));
         }
 
-        controls.getObject().position.add(moveVector);
+        if (intendedMoveVector.length() > 0) {
+            intendedMoveVector.normalize().multiplyScalar(currentMoveSpeed * delta);
+
+            const raycasterOrigin = controls.getObject().position.clone();
+            const raycasterDirection = intendedMoveVector.clone().normalize();
+            const raycasterDistance = intendedMoveVector.length() + 0.1; // Add a small buffer
+
+            const collisionRaycaster = new THREE.Raycaster(raycasterOrigin, raycasterDirection);
+            const intersects = collisionRaycaster.intersectObjects(buildings);
+
+            if (intersects.length === 0 || intersects[0].distance > raycasterDistance) {
+                controls.getObject().position.add(intendedMoveVector);
+            }
+        }
 
         velocityY -= gravity * delta;
         controls.getObject().position.y += velocityY;
