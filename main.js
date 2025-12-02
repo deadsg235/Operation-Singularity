@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 // Scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 10, 150);
+scene.fog = new THREE.Fog(0x000000, 1, 75);
 
 // Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -35,7 +35,7 @@ audioLoader.load('sounds/hit.mp3', function(buffer) {
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.toneMapping = THREE.ReinhardToneMapping;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
 // Post-processing
@@ -45,7 +45,7 @@ composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
 bloomPass.threshold = 0;
-bloomPass.strength = 0.8;
+bloomPass.strength = 1.5;
 bloomPass.radius = 0;
 composer.addPass(bloomPass);
 
@@ -109,7 +109,7 @@ function createCity() {
     const buildingGeometry = new THREE.BoxGeometry(1, 1, 1);
     for (let i = 0; i < 200; i++) {
         const buildingMaterial = new THREE.MeshStandardMaterial({
-            color: 0x111111,
+            color: new THREE.Color(0x111111 + Math.random() * 0x111111),
             metalness: 0.9,
             roughness: 0.3
         });
@@ -180,7 +180,7 @@ const enemies = [];
 function spawnEnemies() {
     const enemyGeometry = new THREE.BoxGeometry(2, 2, 2);
     for (let i = 0; i < 10; i++) {
-        const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.8, roughness: 0.2 });
+        const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.8, roughness: 0.2, emissive: 0xff0000, emissiveIntensity: 0.5 });
         const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
 
         enemy.position.x = Math.random() * 300 - 150;
@@ -238,6 +238,14 @@ function shoot() {
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
 scene.add(ambientLight);
 
+const pointLight = new THREE.PointLight(0xffffff, 1, 100, 2);
+pointLight.position.set(0, 0, 0);
+camera.add(pointLight);
+
+const bluePointLight = new THREE.PointLight(0x0000ff, 1, 200, 1);
+bluePointLight.position.set(0, 50, 0);
+scene.add(bluePointLight);
+
 // Movement variables
 let moveForward = false;
 let moveBackward = false;
@@ -253,6 +261,10 @@ function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime();
+
+    bluePointLight.position.x = Math.sin(elapsedTime * 0.1) * 100;
+    bluePointLight.position.z = Math.cos(elapsedTime * 0.1) * 100;
 
     if (controls.isLocked) {
         velocity.x -= velocity.x * 10.0 * delta;
