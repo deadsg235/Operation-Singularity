@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 // Scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 1, 75);
+scene.fog = new THREE.Fog(0x000000, 1, 150);
 
 // Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -45,7 +45,7 @@ composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
 bloomPass.threshold = 0;
-bloomPass.strength = 1.5;
+bloomPass.strength = 2.5;
 bloomPass.radius = 0;
 composer.addPass(bloomPass);
 
@@ -177,11 +177,48 @@ gun.add(muzzleFlash);
 
 // Enemies
 const enemies = [];
+const enemyMeshes = [];
+function createEnemy() {
+    const enemy = new THREE.Group();
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.5));
+    torso.position.y = 0.75;
+    enemy.add(torso);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5));
+    head.position.y = 1.75;
+    enemy.add(head);
+
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
+    leftArm.position.set(-0.75, 1, 0);
+    enemy.add(leftArm);
+
+    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
+    rightArm.position.set(0.75, 1, 0);
+    enemy.add(rightArm);
+
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
+    leftLeg.position.set(-0.25, -0.5, 0);
+    enemy.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25));
+    rightLeg.position.set(0.25, -0.5, 0);
+    enemy.add(rightLeg);
+
+    return enemy;
+}
+
 function spawnEnemies() {
-    const enemyGeometry = new THREE.BoxGeometry(2, 2, 2);
     for (let i = 0; i < 10; i++) {
+        const enemy = createEnemy();
         const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.8, roughness: 0.2, emissive: 0xff0000, emissiveIntensity: 0.5 });
-        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        
+        enemy.traverse((child) => {
+            if (child.isMesh) {
+                child.material = enemyMaterial;
+                enemyMeshes.push(child);
+            }
+        });
 
         enemy.position.x = Math.random() * 300 - 150;
         enemy.position.z = Math.random() * 300 - 150;
@@ -216,29 +253,40 @@ function shoot() {
     scene.add(tracer);
     bulletTracers.push(tracer);
 
-    const intersects = raycaster.intersectObjects(enemies);
+    const intersects = raycaster.intersectObjects(enemyMeshes);
     if (intersects.length > 0) {
-        const enemy = intersects[0].object;
+        const mesh = intersects[0].object;
+        const enemy = mesh.parent;
+
         enemy.health -= 25;
         if (hitSound.isPlaying) hitSound.stop();
         hitSound.play();
 
-        const originalColor = enemy.material.color.clone();
-        enemy.material.color.set(0xffffff);
-        setTimeout(() => enemy.material.color.copy(originalColor), 100);
+        const originalColor = mesh.material.color.clone();
+        mesh.material.color.set(0xffffff);
+        setTimeout(() => mesh.material.color.copy(originalColor), 100);
 
         if (enemy.health <= 0) {
             scene.remove(enemy);
             enemies.splice(enemies.indexOf(enemy), 1);
+
+            enemy.traverse((child) => {
+                if (child.isMesh) {
+                    const index = enemyMeshes.indexOf(child);
+                    if (index > -1) {
+                        enemyMeshes.splice(index, 1);
+                    }
+                }
+            });
         }
     }
 }
 
 // Lights
-const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+const ambientLight = new THREE.AmbientLight(0x404040, 2);
 scene.add(ambientLight);
 
-const pointLight = new THREE.PointLight(0xffffff, 1, 100, 2);
+const pointLight = new THREE.PointLight(0xffffff, 5, 100, 2);
 pointLight.position.set(0, 0, 0);
 camera.add(pointLight);
 
@@ -257,6 +305,12 @@ const moveSpeed = 50;
 
 // Animation loop
 const clock = new THREE.Clock();
+const collisionRaycaster = new THREE.Raycaster();
+const collisionDistance = 5;
+const cameraDirection = new THREE.Vector3();
+
+const moveDirection = new THREE.Vector3();
+
 function animate() {
     requestAnimationFrame(animate);
 
@@ -267,18 +321,31 @@ function animate() {
     bluePointLight.position.z = Math.cos(elapsedTime * 0.1) * 100;
 
     if (controls.isLocked) {
-        velocity.x -= velocity.x * 10.0 * delta;
-        velocity.z -= velocity.z * 10.0 * delta;
+        const cameraDirection = controls.getObject().getWorldDirection(new THREE.Vector3());
+        const rightDirection = new THREE.Vector3().crossVectors(controls.getObject().up, cameraDirection).negate();
 
-        direction.z = Number(moveForward) - Number(moveBackward);
-        direction.x = Number(moveRight) - Number(moveLeft);
-        direction.normalize();
+        let moveF = Number(moveForward) - Number(moveBackward);
+        let moveR = Number(moveLeft) - Number(moveRight);
 
-        if (moveForward || moveBackward) velocity.z -= direction.z * moveSpeed * delta;
-        if (moveLeft || moveRight) velocity.x -= direction.x * moveSpeed * delta;
+        const moveVector = new THREE.Vector3();
 
-        controls.moveRight(-velocity.x * delta);
-        controls.moveForward(-velocity.z * delta);
+        if (moveF !== 0) {
+            const forwardRaycaster = new THREE.Raycaster(controls.getObject().position, cameraDirection);
+            const forwardIntersects = forwardRaycaster.intersectObjects(buildings);
+            if (forwardIntersects.length === 0 || forwardIntersects[0].distance > collisionDistance) {
+                moveVector.add(cameraDirection.clone().multiplyScalar(moveF * moveSpeed * delta));
+            }
+        }
+
+        if (moveR !== 0) {
+            const rightRaycaster = new THREE.Raycaster(controls.getObject().position, rightDirection);
+            const rightIntersects = rightRaycaster.intersectObjects(buildings);
+            if (rightIntersects.length === 0 || rightIntersects[0].distance > collisionDistance) {
+                moveVector.add(rightDirection.clone().multiplyScalar(moveR * moveSpeed * delta));
+            }
+        }
+
+        controls.getObject().position.add(moveVector);
     }
 
     // Enemy AI
