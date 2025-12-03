@@ -7,19 +7,17 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="html-test-indicator" style="position: fixed; top: 0; left: 0; width: 100%; background-color: blue; color: white; text-align: center; padding: 5px; z-index: 1000;">HTML is rendering correctly!</div>
     <div id="crosshair"></div>
     <div id="health-bar-container">
         <div id="health-bar"></div>
     </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
-    <script type="module" src="main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>

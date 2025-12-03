@@ -1,8 +1,6 @@
-import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+// Ensure THREE is available globally (from CDN)
+// If not, you might need to explicitly assign them:
+// const { Scene, PerspectiveCamera, WebGLRenderer, Color, Fog, AudioListener, Audio, AudioLoader, PlaneGeometry, BoxGeometry, CylinderGeometry, Group, PointLight, MeshStandardMaterial, MeshBasicMaterial, Mesh, Raycaster, Vector3, Clock, LineBasicMaterial, BufferGeometry, Line } = THREE;
 
 // Scene
 const scene = new THREE.Scene();
@@ -12,6 +10,7 @@ scene.fog = new THREE.Fog(0x000000, 1, 150);
 // Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.y = 10;
+camera.position.z = 20; // Move camera back to see the origin if no controls
 
 // Audio
 const listener = new THREE.AudioListener();
@@ -36,21 +35,26 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.setClearColor(0x000000, 1); // Explicitly set clear color to black
 document.body.appendChild(renderer.domElement);
+
+console.log('Renderer initialized:', renderer);
+console.log('Renderer DOM Element:', renderer.domElement);
+console.log('Canvas appended to body:', document.body.contains(renderer.domElement));
 
 // Post-processing
 const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, camera);
+const renderPass = new THREE.RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
 bloomPass.threshold = 0;
 bloomPass.strength = 2.5;
 bloomPass.radius = 0;
 composer.addPass(bloomPass);
 
 // Controls
-const controls = new PointerLockControls(camera, renderer.domElement);
+const controls = new THREE.PointerLockControls(camera, renderer.domElement);
 const onKeyDown = (event) => {
     switch (event.code) {
         case 'KeyW':
