@@ -1,7 +1,7 @@
 {
   "name": "threejs-fps-game",
   "version": "1.0.0",
-  "description": "A futuristic FPS shooter centered around a rogue AI singularity event, built with Three.js.",
+  "description": "A fast-paced, gory FPS shooter centered around a rogue AI singularity event, built with Three.js.",
   "main": "main.js",
   "scripts": {
     "start": "npx serve ."
@@ -10,7 +10,9 @@
     "three.js",
     "fps",
     "game",
-    "webgl"
+    "webgl",
+    "gory",
+    "fast-paced"
   ],
   "author": "",
   "license": "ISC",

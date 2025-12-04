@@ -134,67 +134,6 @@ const onKeyUp = function (event) {
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup', onKeyUp);
 
-// --- Enemy Logic ---
-const enemies = [];
-const enemySpeed = 1.5; // units per second
-
-// Function to create a primitive humanoid enemy
-function createHumanoidEnemy() {
-    const enemyGroup = new THREE.Group();
-    const enemyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Red color
-
-    // Body (Capsule)
-    const bodyGeometry = new THREE.CapsuleGeometry(0.3, 1.0, 4, 8);
-    const body = new THREE.Mesh(bodyGeometry, enemyMaterial);
-    body.position.y = 0.5; // Half of height + head radius
-    body.castShadow = true;
-    enemyGroup.add(body);
-
-    // Head (Sphere)
-    const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
-    const head = new THREE.Mesh(headGeometry, enemyMaterial);
-    head.position.y = 1.35; // On top of the body
-    head.castShadow = true;
-    enemyGroup.add(head);
-
-    // Arms (Capsules) - simple
-    const armGeometry = new THREE.CapsuleGeometry(0.1, 0.7, 4, 8);
-    const leftArm = new THREE.Mesh(armGeometry, enemyMaterial);
-    leftArm.position.set(-0.4, 0.7, 0);
-    leftArm.rotation.z = Math.PI / 4;
-    leftArm.castShadow = true;
-    enemyGroup.add(leftArm);
-
-    const rightArm = new THREE.Mesh(armGeometry, enemyMaterial);
-    rightArm.position.set(0.4, 0.7, 0);
-    rightArm.rotation.z = -Math.PI / 4;
-    rightArm.castShadow = true;
-    enemyGroup.add(rightArm);
-
-    // Legs (Capsules) - simple
-    const legGeometry = new THREE.CapsuleGeometry(0.12, 0.8, 4, 8);
-    const leftLeg = new THREE.Mesh(legGeometry, enemyMaterial);
-    leftLeg.position.set(-0.15, -0.2, 0);
-    leftLeg.castShadow = true;
-    enemyGroup.add(leftLeg);
-
-    const rightLeg = new THREE.Mesh(legGeometry, enemyMaterial);
-    rightLeg.position.set(0.15, -0.2, 0);
-    rightLeg.castShadow = true;
-    enemyGroup.add(rightLeg);
-
-    // Adjust the whole group's pivot to its base for easier positioning on floor
-    enemyGroup.position.y = 0.8; // Adjust to stand on the floor (body.y + body.height/2 + head.radius approx)
-
-    return enemyGroup;
-}
-
-// Instantiate an enemy
-const enemy = createHumanoidEnemy();
-enemy.position.set(5, 0, -5); // Initial position for the enemy
-scene.add(enemy);
-enemies.push(enemy);
-
 // Animation loop
 function animate() {
     requestAnimationFrame(animate);
@@ -215,34 +154,6 @@ function animate() {
 
         controls.moveRight(-velocity.x * delta);
         controls.moveForward(-velocity.z * delta);
-
-        // --- Enemy Movement Update ---
-        enemies.forEach(currentEnemy => {
-            const playerPosition = controls.getObject().position;
-            const enemyPosition = currentEnemy.position;
-
-            // --- Rudimentary Flanking Logic ---
-            // Aim for a slightly offset position from the player
-            // Oscillates the target point around the player
-            const flankingOffset = new THREE.Vector3(
-                Math.sin(time * 0.0005) * 3, // Oscillate X offset with time
-                0,
-                Math.cos(time * 0.0005) * 3  // Oscillate Z offset with time
-            );
-
-            const targetPosition = playerPosition.clone().add(flankingOffset);
-
-            const targetDirection = new THREE.Vector3().subVectors(targetPosition, enemyPosition);
-            targetDirection.y = 0; // Keep movement on the horizontal plane
-            targetDirection.normalize();
-
-            // Move enemy towards target position
-            currentEnemy.position.x += targetDirection.x * enemySpeed * delta;
-            currentEnemy.position.z += targetDirection.z * enemySpeed * delta;
-
-            // Make enemy look at player (still relevant for "awareness")
-            currentEnemy.lookAt(playerPosition.x, currentEnemy.position.y, playerPosition.z);
-        });
     }
 
     prevTime = time;
