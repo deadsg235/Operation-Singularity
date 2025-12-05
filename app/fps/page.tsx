@@ -132,7 +132,7 @@ function Gun({ onShoot }: { onShoot: (dir: THREE.Vector3) => void }) {
 
   return (
     <group>
-      <mesh ref={gun}>
+      <mesh ref={gun} castShadow>
         <boxGeometry args={[0.15, 0.08, 0.8]} />
         <meshStandardMaterial color="#1a1a1a" metalness={0.8} roughness={0.2} />
       </mesh>
@@ -426,7 +426,7 @@ function Game() {
       />
 
       {/* Enhanced lighting */}
-      <ambientLight intensity={0.3} color="#440044" />
+      <ambientLight intensity={0.5} color="#666688" />
       <directionalLight position={[10, 15, 10]} intensity={1.5} color="#ffffff" castShadow />
       <pointLight position={[0, 5, 0]} intensity={0.8} color="#ff4444" distance={20} />
 
@@ -503,6 +503,7 @@ function Game() {
 export default function Page() {
   return (
     <Canvas
+      shadows // Enable shadows globally
       onCreated={({ scene }) => {
         (window as any)._r3f_scene = scene;
       }}
