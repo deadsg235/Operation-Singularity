@@ -1,26 +1,33 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 export default function HomePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.push("/fps");
-  }, [router]);
-
   return (
     <div style={{
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       height: "100vh",
       backgroundColor: "#000",
       color: "#fff",
-      fontFamily: "monospace"
+      fontFamily: "monospace",
+      textAlign: "center"
     }}>
-      <div>Loading Operation Singularity...</div>
+      <h1 style={{ color: "#ff0040", fontSize: "3rem", marginBottom: "2rem" }}>OPERATION SINGULARITY</h1>
+      <p style={{ fontSize: "1.2rem", marginBottom: "2rem" }}>Fast-Paced Gory FPS</p>
+      <a 
+        href="/fps" 
+        style={{
+          padding: "1rem 2rem",
+          fontSize: "1.5rem",
+          backgroundColor: "#ff0040",
+          color: "white",
+          textDecoration: "none",
+          fontFamily: "monospace",
+          fontWeight: "bold",
+          border: "2px solid #ff0040"
+        }}
+      >
+        PLAY GAME
+      </a>
     </div>
   );
 }
