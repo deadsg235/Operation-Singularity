@@ -25,4 +25,138 @@ export function AdvancedDrone({ position, onHitPlayer, onDestroy, difficulty = 1
   const attackRange = 2.5;
   const speed = 0.03 + (difficulty * 0.01);
 
-  useFrame((state, delta) => {\n    if (!mesh.current || isDead) return;\n\n    const enemyPos = mesh.current.position;\n    const playerPos = camera.position;\n    const distance = enemyPos.distanceTo(playerPos);\n    \n    attackCooldown.current -= delta;\n\n    // AI State Machine\n    if (distance > aggroRange) {\n      // Patrol behavior\n      const patrolRadius = 3;\n      const time = state.clock.elapsedTime * 0.5;\n      enemyPos.x = lastPosition.current.x + Math.sin(time + bobOffset.current) * patrolRadius;\n      enemyPos.z = lastPosition.current.z + Math.cos(time + bobOffset.current) * patrolRadius;\n    } else if (distance > attackRange) {\n      // Chase behavior\n      const direction = new THREE.Vector3()\n        .subVectors(playerPos, enemyPos)\n        .normalize();\n      \n      // Add some evasive movement\n      const evasion = new THREE.Vector3(\n        Math.sin(state.clock.elapsedTime * 4) * 0.5,\n        0,\n        Math.cos(state.clock.elapsedTime * 3) * 0.5\n      );\n      \n      direction.add(evasion.multiplyScalar(0.3));\n      enemyPos.add(direction.multiplyScalar(speed));\n      \n      // Face the player\n      mesh.current.lookAt(playerPos.x, enemyPos.y, playerPos.z);\n      setIsAttacking(false);\n    } else {\n      // Attack behavior\n      setIsAttacking(true);\n      if (attackCooldown.current <= 0) {\n        attackCooldown.current = 1.0 / difficulty; // Faster attacks with higher difficulty\n        onHitPlayer();\n        \n        // Attack animation - lunge forward\n        const lungeDirection = new THREE.Vector3()\n          .subVectors(playerPos, enemyPos)\n          .normalize()\n          .multiplyScalar(0.5);\n        enemyPos.add(lungeDirection);\n      }\n    }\n\n    // Floating/bobbing movement\n    enemyPos.y = 1 + Math.sin(state.clock.elapsedTime * 4 + bobOffset.current) * 0.3;\n    \n    // Rotation for menacing effect\n    mesh.current.rotation.y += delta * 2;\n    mesh.current.rotation.x = Math.sin(state.clock.elapsedTime * 2) * 0.2;\n  });\n\n  const takeDamage = (damage: number) => {\n    const newHealth = health - damage;\n    setHealth(newHealth);\n    \n    // Flash red when hit\n    if (mesh.current) {\n      const material = mesh.current.material as THREE.MeshStandardMaterial;\n      material.emissive.setHex(0xff0000);\n      setTimeout(() => {\n        material.emissive.setHex(0x330000);\n      }, 100);\n    }\n    \n    if (newHealth <= 0 && !isDead) {\n      setIsDead(true);\n      onDestroy();\n      \n      // Death animation\n      if (mesh.current) {\n        const deathTween = () => {\n          let scale = 1;\n          const animate = () => {\n            scale -= 0.05;\n            if (mesh.current && scale > 0) {\n              mesh.current.scale.setScalar(scale);\n              mesh.current.rotation.x += 0.2;\n              mesh.current.rotation.z += 0.3;\n              requestAnimationFrame(animate);\n            } else if (mesh.current) {\n              scene.remove(mesh.current);\n            }\n          };\n          animate();\n        };\n        deathTween();\n      }\n    }\n  };\n\n  // Expose takeDamage method\n  useEffect(() => {\n    if (mesh.current) {\n      (mesh.current as any).takeDamage = takeDamage;\n    }\n  }, [health]);\n\n  if (isDead) return null;\n\n  const healthRatio = health / (100 * difficulty);\n  const baseColor = isAttacking ? 0xff0000 : 0xff0040;\n  const currentColor = new THREE.Color(baseColor).lerp(new THREE.Color(0x660000), 1 - healthRatio);\n\n  return (\n    <group>\n      <mesh ref={mesh} position={position} userData={{ enemy: true, health }} castShadow>\n        <boxGeometry args={[0.8, 0.6, 0.8]} />\n        <meshStandardMaterial \n          color={currentColor}\n          metalness={0.8} \n          roughness={0.2}\n          emissive={isAttacking ? \"#ff0000\" : \"#330000\"}\n          emissiveIntensity={isAttacking ? 0.5 : 0.2}\n        />\n      </mesh>\n      \n      {/* Glowing eyes */}\n      <mesh position={[position[0] - 0.2, position[1] + 0.1, position[2] + 0.4]}>\n        <sphereGeometry args={[0.05, 8, 8]} />\n        <meshBasicMaterial color=\"#ff0000\" />\n      </mesh>\n      <mesh position={[position[0] + 0.2, position[1] + 0.1, position[2] + 0.4]}>\n        <sphereGeometry args={[0.05, 8, 8]} />\n        <meshBasicMaterial color=\"#ff0000\" />\n      </mesh>\n      \n      {/* Health bar */}\n      {healthRatio < 1 && (\n        <group position={[position[0], position[1] + 0.8, position[2]]}>\n          <mesh>\n            <planeGeometry args={[0.8, 0.1]} />\n            <meshBasicMaterial color=\"#333333\" transparent opacity={0.8} />\n          </mesh>\n          <mesh position={[(-0.4 + (0.8 * healthRatio) / 2), 0, 0.001]}>\n            <planeGeometry args={[0.8 * healthRatio, 0.08]} />\n            <meshBasicMaterial color={healthRatio > 0.3 ? \"#ff0000\" : \"#ffff00\"} />\n          </mesh>\n        </group>\n      )}\n    </group>\n  );\n}
+  useFrame((state, delta) => {
+    if (!mesh.current || isDead) return;
+
+    const enemyPos = mesh.current.position;
+    const playerPos = camera.position;
+    const distance = enemyPos.distanceTo(playerPos);
+    
+    attackCooldown.current -= delta;
+
+    if (distance > aggroRange) {
+      const patrolRadius = 3;
+      const time = state.clock.elapsedTime * 0.5;
+      enemyPos.x = lastPosition.current.x + Math.sin(time + bobOffset.current) * patrolRadius;
+      enemyPos.z = lastPosition.current.z + Math.cos(time + bobOffset.current) * patrolRadius;
+    } else if (distance > attackRange) {
+      const direction = new THREE.Vector3()
+        .subVectors(playerPos, enemyPos)
+        .normalize();
+      
+      const evasion = new THREE.Vector3(
+        Math.sin(state.clock.elapsedTime * 4) * 0.5,
+        0,
+        Math.cos(state.clock.elapsedTime * 3) * 0.5
+      );
+      
+      direction.add(evasion.multiplyScalar(0.3));
+      enemyPos.add(direction.multiplyScalar(speed));
+      
+      mesh.current.lookAt(playerPos.x, enemyPos.y, playerPos.z);
+      setIsAttacking(false);
+    } else {
+      setIsAttacking(true);
+      if (attackCooldown.current <= 0) {
+        attackCooldown.current = 1.0 / difficulty;
+        onHitPlayer();
+        
+        const lungeDirection = new THREE.Vector3()
+          .subVectors(playerPos, enemyPos)
+          .normalize()
+          .multiplyScalar(0.5);
+        enemyPos.add(lungeDirection);
+      }
+    }
+
+    enemyPos.y = 1 + Math.sin(state.clock.elapsedTime * 4 + bobOffset.current) * 0.3;
+    mesh.current.rotation.y += delta * 2;
+    mesh.current.rotation.x = Math.sin(state.clock.elapsedTime * 2) * 0.2;
+  });
+
+  const takeDamage = (damage: number) => {
+    const newHealth = health - damage;
+    setHealth(newHealth);
+    
+    if (mesh.current) {
+      const material = mesh.current.material as THREE.MeshStandardMaterial;
+      material.emissive.setHex(0xff0000);
+      setTimeout(() => {
+        material.emissive.setHex(0x330000);
+      }, 100);
+    }
+    
+    if (newHealth <= 0 && !isDead) {
+      setIsDead(true);
+      onDestroy();
+      
+      if (mesh.current) {
+        const deathTween = () => {
+          let scale = 1;
+          const animate = () => {
+            scale -= 0.05;
+            if (mesh.current && scale > 0) {
+              mesh.current.scale.setScalar(scale);
+              mesh.current.rotation.x += 0.2;
+              mesh.current.rotation.z += 0.3;
+              requestAnimationFrame(animate);
+            } else if (mesh.current) {
+              scene.remove(mesh.current);
+            }
+          };
+          animate();
+        };
+        deathTween();
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (mesh.current) {
+      (mesh.current as any).takeDamage = takeDamage;
+    }
+  }, [health]);
+
+  if (isDead) return null;
+
+  const healthRatio = health / (100 * difficulty);
+  const baseColor = isAttacking ? 0xff0000 : 0xff0040;
+  const currentColor = new THREE.Color(baseColor).lerp(new THREE.Color(0x660000), 1 - healthRatio);
+
+  return (
+    <group>
+      <mesh ref={mesh} position={position} userData={{ enemy: true, health }} castShadow>
+        <boxGeometry args={[0.8, 0.6, 0.8]} />
+        <meshStandardMaterial 
+          color={currentColor}
+          metalness={0.8} 
+          roughness={0.2}
+          emissive={isAttacking ? "#ff0000" : "#330000"}
+          emissiveIntensity={isAttacking ? 0.5 : 0.2}
+        />
+      </mesh>
+      
+      <mesh position={[position[0] - 0.2, position[1] + 0.1, position[2] + 0.4]}>
+        <sphereGeometry args={[0.05, 8, 8]} />
+        <meshBasicMaterial color="#ff0000" />
+      </mesh>
+      <mesh position={[position[0] + 0.2, position[1] + 0.1, position[2] + 0.4]}>
+        <sphereGeometry args={[0.05, 8, 8]} />
+        <meshBasicMaterial color="#ff0000" />
+      </mesh>
+      
+      {healthRatio < 1 && (
+        <group position={[position[0], position[1] + 0.8, position[2]]}>
+          <mesh>
+            <planeGeometry args={[0.8, 0.1]} />
+            <meshBasicMaterial color="#333333" transparent opacity={0.8} />
+          </mesh>
+          <mesh position={[(-0.4 + (0.8 * healthRatio) / 2), 0, 0.001]}>
+            <planeGeometry args={[0.8 * healthRatio, 0.08]} />
+            <meshBasicMaterial color={healthRatio > 0.3 ? "#ff0000" : "#ffff00"} />
+          </mesh>
+        </group>
+      )}
+    </group>
+  );
+}
