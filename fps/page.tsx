@@ -3,11 +3,11 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useEffect, useRef, useState } from "react";
-import { soundSystem } from "../components/SoundSystem";
-import { BloodSplatter, MuzzleFlash } from "../components/GoreSystem";
-import { AdvancedDrone } from "../components/EnemyAI";
-import { PowerUpItem, PowerUp } from "../components/PowerUps";
-import { HUD } from "../components/HUD";
+import { soundSystem } from "../app/components/SoundSystem";
+import { BloodSplatter, MuzzleFlash } from "../app/components/GoreSystem";
+import { AdvancedDrone } from "../app/components/EnemyAI";
+import { PowerUpItem, PowerUp } from "../app/components/PowerUps";
+import { HUD } from "../app/components/HUD";
 
 // -----------------------------
 // CONFIG
