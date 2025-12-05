@@ -213,40 +213,77 @@
         }
         
         function startGame() {
+            console.log('Starting game and requesting pointer lock');
             document.getElementById('start').style.display = 'none';
             gameStarted = true;
             
-            // Pointer lock
-            renderer.domElement.requestPointerLock();
+            // Request pointer lock with fallbacks
+            const canvas = renderer.domElement;
+            const requestPointerLock = canvas.requestPointerLock || 
+                                     canvas.mozRequestPointerLock || 
+                                     canvas.webkitRequestPointerLock;
+            
+            if (requestPointerLock) {
+                requestPointerLock.call(canvas);
+            }
         }
         
-        // Event listeners
-        document.addEventListener('pointerlockchange', () => {
-            const locked = !!document.pointerLockElement;
+        // Pointer lock event listeners with fallbacks
+        function handlePointerLockChange() {
+            const locked = !!(document.pointerLockElement || 
+                            document.mozPointerLockElement || 
+                            document.webkitPointerLockElement);
+            
+            console.log('Pointer lock changed:', locked);
+            
             if (!locked && gameStarted) {
                 document.getElementById('start').style.display = 'flex';
                 gameStarted = false;
             }
-        });
+        }
+        
+        document.addEventListener('pointerlockchange', handlePointerLockChange);
+        document.addEventListener('mozpointerlockchange', handlePointerLockChange);
+        document.addEventListener('webkitpointerlockchange', handlePointerLockChange);
         
         document.addEventListener('mousemove', (e) => {
-            if (!document.pointerLockElement || !gameStarted) return;
+            const locked = !!(document.pointerLockElement || 
+                            document.mozPointerLockElement || 
+                            document.webkitPointerLockElement);
             
-            const sensitivity = 0.002;
-            camera.rotation.y -= e.movementX * sensitivity;
-            camera.rotation.x -= e.movementY * sensitivity;
+            if (!locked || !gameStarted) return;
+            
+            const sensitivity = 0.003;
+            const movementX = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+            const movementY = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
+            
+            camera.rotation.y -= movementX * sensitivity;
+            camera.rotation.x -= movementY * sensitivity;
             camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
         });
         
         document.addEventListener('mousedown', (e) => {
-            if (e.button === 0 && gameStarted && document.pointerLockElement) {
+            const locked = !!(document.pointerLockElement || 
+                            document.mozPointerLockElement || 
+                            document.webkitPointerLockElement);
+            
+            if (e.button === 0 && gameStarted && locked) {
                 shoot();
             }
         });
         
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-            if (e.code === 'Escape') document.exitPointerLock();
+            
+            if (e.code === 'Escape') {
+                const exitPointerLock = document.exitPointerLock || 
+                                       document.mozExitPointerLock || 
+                                       document.webkitExitPointerLock;
+                
+                if (exitPointerLock) {
+                    exitPointerLock.call(document);
+                }
+            }
         });
         
         document.addEventListener('keyup', (e) => {
