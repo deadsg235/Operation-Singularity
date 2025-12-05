@@ -1,7 +1,1 @@
-{
-  "functions": {
-    "app/fps/page.tsx": {
-      "runtime": "nodejs18.x"
-    }
-  }
-}
+{}
