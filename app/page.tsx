@@ -1,11 +1,18 @@
 export default function HomePage() {
   return (
-    <html>
-      <body>
-        <h1>OPERATION SINGULARITY</h1>
-        <p>Game is working!</p>
-        <a href="/fps">Play FPS Game</a>
-      </body>
-    </html>
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100vh",
+      backgroundColor: "#000",
+      color: "#fff",
+      fontFamily: "monospace"
+    }}>
+      <h1 style={{ color: "#ff0040", fontSize: "2rem" }}>OPERATION SINGULARITY</h1>
+      <p>Fast-Paced Gory FPS Game</p>
+      <a href="/fps" style={{ color: "#00ff00", fontSize: "1.2rem" }}>▶ PLAY GAME</a>
+    </div>
   );
 }
