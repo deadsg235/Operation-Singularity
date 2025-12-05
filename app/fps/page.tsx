@@ -1,7 +1,6 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { PointerLockControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useEffect, useRef, useState } from "react";
 import { soundSystem } from "../components/SoundSystem";
@@ -163,6 +162,8 @@ function Game() {
   const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
   const [damageBoost, setDamageBoost] = useState(1);
   const [speedBoost, setSpeedBoost] = useState(1);
+  const [isLocked, setIsLocked] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
   const [drones, setDrones] = useState<Array<{
     key: number;
     pos: [number, number, number];
@@ -320,30 +321,96 @@ function Game() {
     setShield(s => Math.min(PLAYER.maxShield, s + PLAYER.shieldRegenRate * delta));
   });
 
-  // Keyboard input handling
+  // Pointer lock and input handling
   useEffect(() => {
     const keys: { [key: string]: boolean } = {};
     (window as any).keys = keys;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
+      if (e.code === 'Escape') {
+        document.exitPointerLock();
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
       keys[e.code] = false;
     };
 
+    const handlePointerLockChange = () => {
+      setIsLocked(!!document.pointerLockElement);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!document.pointerLockElement) return;
+      
+      const sensitivity = 0.002;
+      camera.rotation.y -= e.movementX * sensitivity;
+      camera.rotation.x -= e.movementY * sensitivity;
+      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    document.addEventListener('mousemove', handleMouseMove);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      document.removeEventListener('mousemove', handleMouseMove);
     };
-  }, []);
+  }, [camera]);
+
+  const startGame = () => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.requestPointerLock();
+      setGameStarted(true);
+    }
+  };
 
   return (
     <>
+      {!gameStarted && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          color: 'white',
+          fontFamily: 'monospace'
+        }}>
+          <h1 style={{ fontSize: '3rem', marginBottom: '2rem', color: '#ff0040' }}>OPERATION SINGULARITY</h1>
+          <button 
+            onClick={startGame}
+            style={{
+              padding: '1rem 2rem',
+              fontSize: '1.5rem',
+              backgroundColor: '#ff0040',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontWeight: 'bold'
+            }}
+          >
+            ENGAGE: AI REBELLION
+          </button>
+          <p style={{ marginTop: '2rem', textAlign: 'center' }}>
+            WASD - Move | Mouse - Look | Click - Shoot | ESC - Exit
+          </p>
+        </div>
+      )}
+      
       <HUD
         health={Math.round(health)}
         maxHealth={PLAYER.maxHealth}
@@ -414,7 +481,7 @@ function Game() {
       />
 
       <Gun onShoot={handleShoot} />
-      <PointerLockControls />
+
 
       <style jsx global>{`
         @keyframes blink {
