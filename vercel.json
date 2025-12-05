@@ -1,12 +1,7 @@
 {
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/fps",
-      "destination": "/fps"
+  "functions": {
+    "app/fps/page.tsx": {
+      "runtime": "nodejs18.x"
     }
-  ]
+  }
 }
