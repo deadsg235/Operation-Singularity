@@ -7,15 +7,18 @@ import { useEffect, useRef, useState } from "react";
 import { soundSystem } from "../components/SoundSystem";
 import { BloodSplatter, MuzzleFlash } from "../components/GoreSystem";
 import { AdvancedDrone } from "../components/EnemyAI";
+import { PowerUpItem, PowerUp } from "../components/PowerUps";
+import { HUD } from "../components/HUD";
 
 // -----------------------------
 // CONFIG
 // -----------------------------
 const PLAYER = {
-  health: 100,
-  shield: 50,
+  maxHealth: 100,
+  maxShield: 50,
   damageFlashTime: 200,
   moveSpeed: 0.15,
+  shieldRegenRate: 10,
 };
 
 const ENEMY = {
@@ -149,19 +152,22 @@ function Gun({ onShoot }: { onShoot: (dir: THREE.Vector3) => void }) {
 // -----------------------------
 function Game() {
   const { camera, scene } = useThree();
-  const [health, setHealth] = useState(PLAYER.health);
-  const [shield, setShield] = useState(PLAYER.shield);
+  const [health, setHealth] = useState(PLAYER.maxHealth);
+  const [shield, setShield] = useState(PLAYER.maxShield);
   const [score, setScore] = useState(0);
   const [ammo, setAmmo] = useState(GUN.maxAmmo);
   const [damageFlash, setDamageFlash] = useState(false);
   const [screenShake, setScreenShake] = useState(false);
-  const [drones, setDrones] = useState(() => 
-    Array.from({ length: 6 }).map((_, i) => ({
-      key: i,
-      pos: [(Math.random() - 0.5) * 25, 1, Math.random() * -20 - 10] as [number, number, number],
-      difficulty: 1 + Math.floor(i / 3), // Increasing difficulty
-    }))
-  );
+  const [wave, setWave] = useState(1);
+  const [waveActive, setWaveActive] = useState(true);
+  const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
+  const [damageBoost, setDamageBoost] = useState(1);
+  const [speedBoost, setSpeedBoost] = useState(1);
+  const [drones, setDrones] = useState<Array<{
+    key: number;
+    pos: [number, number, number];
+    difficulty: number;
+  }>>([]);
   const [bloodSplatters, setBloodSplatters] = useState<Array<{
     key: number;
     position: THREE.Vector3;
@@ -172,20 +178,31 @@ function Game() {
   const [muzzleDirection, setMuzzleDirection] = useState(new THREE.Vector3());
   const bloodParticles = useRef<THREE.Points[]>([]);
 
-  // Spawn new enemies periodically with increasing difficulty
+  // Wave system
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (drones.length < 10) {
-        const waveNumber = Math.floor(score / 500) + 1;
-        setDrones(prev => [...prev, {
-          key: Date.now(),
-          pos: [(Math.random() - 0.5) * 30, 1, Math.random() * -25 - 15] as [number, number, number],
-          difficulty: Math.min(waveNumber, 3), // Cap difficulty at 3
-        }]);
+    if (waveActive && drones.length === 0) {
+      // Start new wave
+      const enemyCount = 5 + (wave * 2);
+      const newDrones = Array.from({ length: enemyCount }).map((_, i) => ({
+        key: Date.now() + i,
+        pos: [(Math.random() - 0.5) * 40, 1, Math.random() * -30 - 15] as [number, number, number],
+        difficulty: Math.min(Math.floor(wave / 2) + 1, 4),
+      }));
+      setDrones(newDrones);
+      
+      // Spawn power-ups every few waves
+      if (wave % 3 === 0) {
+        const powerUpTypes: Array<'health' | 'shield' | 'damage' | 'speed'> = ['health', 'shield', 'damage', 'speed'];
+        const newPowerUp: PowerUp = {
+          id: `powerup-${Date.now()}`,
+          type: powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)],
+          position: new THREE.Vector3((Math.random() - 0.5) * 20, 1, (Math.random() - 0.5) * 20),
+          collected: false
+        };
+        setPowerUps(prev => [...prev, newPowerUp]);
       }
-    }, Math.max(1000, ENEMY.spawnRate - (score / 10)), [drones.length, score]);
-    return () => clearInterval(interval);
-  }, [drones.length, score]);
+    }
+  }, [drones.length, wave, waveActive]);
 
   const handleHitPlayer = () => {
     const damage = ENEMY.damage;
@@ -209,7 +226,6 @@ function Game() {
     if (ammo <= 0) return;
     setAmmo(a => Math.max(0, a - 1));
 
-    // Muzzle flash effect
     setMuzzlePosition(camera.position.clone().add(new THREE.Vector3(0.4, -0.3, -1)));
     setMuzzleDirection(dir.clone());
     setMuzzleFlashVisible(true);
@@ -223,16 +239,14 @@ function Game() {
       const hitObject = hit.object;
       
       if (hitObject.userData.enemy && (hitObject as any).takeDamage) {
-        (hitObject as any).takeDamage(GUN.damage);
+        (hitObject as any).takeDamage(GUN.damage * damageBoost);
         
-        // Create blood splatter
         setBloodSplatters(prev => [...prev, {
           key: Date.now() + Math.random(),
           position: hit.point.clone(),
           normal: hit.face?.normal || new THREE.Vector3(0, 1, 0),
         }]);
         
-        // Screen shake on hit
         setScreenShake(true);
         setTimeout(() => setScreenShake(false), 50);
       }
@@ -241,8 +255,35 @@ function Game() {
 
   const handleDroneDestroy = () => {
     soundSystem.playEnemyDeath(0.25);
-    setScore(s => s + 100);
-    setDrones(prev => prev.slice(0, -1)); // Remove one drone
+    setScore(s => s + (100 * wave));
+    setDrones(prev => prev.slice(0, -1));
+    
+    // Check if wave complete
+    if (drones.length === 1) {
+      setWave(w => w + 1);
+      setTimeout(() => setWaveActive(true), 2000);
+    }
+  };
+
+  const handlePowerUpCollect = (id: string, type: string) => {
+    setPowerUps(prev => prev.map(p => p.id === id ? { ...p, collected: true } : p));
+    
+    switch (type) {
+      case 'health':
+        setHealth(h => Math.min(PLAYER.maxHealth, h + 50));
+        break;
+      case 'shield':
+        setShield(s => PLAYER.maxShield);
+        break;
+      case 'damage':
+        setDamageBoost(2);
+        setTimeout(() => setDamageBoost(1), 10000);
+        break;
+      case 'speed':
+        setSpeedBoost(2);
+        setTimeout(() => setSpeedBoost(1), 8000);
+        break;
+    }
   };
 
   // Clean up old blood splatters
@@ -263,18 +304,20 @@ function Game() {
     }
   }, [ammo]);
 
-  // Movement system
-  useFrame(() => {
+  // Movement and shield regen
+  useFrame((state, delta) => {
     const keys = (window as any).keys || {};
-    const moveSpeed = PLAYER.moveSpeed;
+    const moveSpeed = PLAYER.moveSpeed * speedBoost;
     
     if (keys['KeyW']) camera.translateZ(-moveSpeed);
     if (keys['KeyS']) camera.translateZ(moveSpeed);
     if (keys['KeyA']) camera.translateX(-moveSpeed);
     if (keys['KeyD']) camera.translateX(moveSpeed);
     
-    // Keep camera above ground
     if (camera.position.y < 1.6) camera.position.y = 1.6;
+    
+    // Shield regeneration
+    setShield(s => Math.min(PLAYER.maxShield, s + PLAYER.shieldRegenRate * delta));
   });
 
   // Keyboard input handling
@@ -301,55 +344,19 @@ function Game() {
 
   return (
     <>
-      {/* Enhanced HUD */}
-      <div
-        style={{
-          position: "absolute",
-          top: 20,
-          left: 20,
-          color: "white",
-          fontFamily: "monospace",
-          fontSize: "16px",
-          fontWeight: "bold",
-          zIndex: 5,
-          textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-          transform: screenShake ? `translate(${Math.random() * 4 - 2}px, ${Math.random() * 4 - 2}px)` : "none",
-        }}
-      >
-        <div style={{ color: health > 30 ? "#00ff00" : "#ff0000" }}>HEALTH: {health}</div>
-        <div style={{ color: shield > 0 ? "#00ffff" : "#666" }}>SHIELD: {shield}</div>
-        <div style={{ color: "#ffff00" }}>SCORE: {score}</div>
-        <div style={{ color: ammo > 5 ? "#ffffff" : "#ff6600" }}>AMMO: {ammo}/{GUN.maxAmmo}</div>
-        {ammo === 0 && <div style={{ color: "#ff0000", animation: "blink 0.5s infinite" }}>RELOADING...</div>}
-      </div>
-
-      {/* Crosshair */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "4px",
-          height: "4px",
-          backgroundColor: "rgba(255,255,255,0.8)",
-          borderRadius: "50%",
-          zIndex: 10,
-          boxShadow: "0 0 10px rgba(255,255,255,0.5)",
-        }}
+      <HUD
+        health={Math.round(health)}
+        maxHealth={PLAYER.maxHealth}
+        shield={Math.round(shield)}
+        maxShield={PLAYER.maxShield}
+        ammo={ammo}
+        maxAmmo={GUN.maxAmmo}
+        score={score}
+        wave={wave}
+        enemiesLeft={drones.length}
+        screenShake={screenShake}
+        damageFlash={damageFlash}
       />
-
-      {damageFlash && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(circle, rgba(255,0,0,0.4) 0%, rgba(255,0,0,0.1) 100%)",
-            zIndex: 10,
-            animation: "pulse 0.2s ease-out",
-          }}
-        />
-      )}
 
       {/* Enhanced lighting */}
       <ambientLight intensity={0.3} color="#440044" />
@@ -390,7 +397,16 @@ function Game() {
         />
       ))}
 
-      {/* Muzzle flash */}
+      {/* Power-ups */}
+      {powerUps.map((powerUp) => (
+        <PowerUpItem
+          key={powerUp.id}
+          powerUp={powerUp}
+          onCollect={handlePowerUpCollect}
+          playerPosition={camera.position}
+        />
+      ))}
+
       <MuzzleFlash
         position={muzzlePosition}
         direction={muzzleDirection}
